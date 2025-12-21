@@ -27,27 +27,27 @@ var capacity = map[int]map[ErrorCorrection]*charCapacity{
 }
 var config *charCapacity
 
-type charFrameSizes struct {
+type charFrameSize struct {
 	numeric  uint8
 	alpha    uint8
 	byteMode uint8
 }
 
-var charCountFrameSize = map[int]*charFrameSizes{}
+var charCountFrameSize = map[int]*charFrameSize{}
 
 func loadCharCountFrameSize() {
 	for i := range MAX_VERSION_SUPPORTED {
 		v := i + 1
 		if v >= 27 {
-			charCountFrameSize[v] = &charFrameSizes{numeric: 14, alpha: 13, byteMode: 16}
+			charCountFrameSize[v] = &charFrameSize{numeric: 14, alpha: 13, byteMode: 16}
 			continue
 		}
 		if v >= 10 {
-			charCountFrameSize[v] = &charFrameSizes{numeric: 12, alpha: 11, byteMode: 16}
+			charCountFrameSize[v] = &charFrameSize{numeric: 12, alpha: 11, byteMode: 16}
 			continue
 		}
 		if v >= 1 {
-			charCountFrameSize[v] = &charFrameSizes{numeric: 10, alpha: 9, byteMode: 8}
+			charCountFrameSize[v] = &charFrameSize{numeric: 10, alpha: 9, byteMode: 8}
 			continue
 		}
 	}

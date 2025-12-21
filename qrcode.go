@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-type ErrorCorrection uint8
+type ErrorCorrection int
 
 const (
 	L ErrorCorrection = iota
@@ -26,16 +26,7 @@ const (
 	// KANJI   EncodingMode = 8
 )
 
-type QrDetails struct {
-	encoding        EncodingMode
-	errorCorrection ErrorCorrection
-	version         uint8
-}
-
-type TableData struct {
-}
-
-func FindMode(data []byte) EncodingMode {
+func findMode(data []byte) EncodingMode {
 	mode := NUMERIC
 	for _, item := range data {
 		if mode == NUMERIC && slices.Index(numericTable, item) == -1 {
@@ -48,7 +39,7 @@ func FindMode(data []byte) EncodingMode {
 	return mode
 }
 
-func FindOptimalVersion(data []byte, correction ErrorCorrection, mode EncodingMode) (int, error) {
+func findBestVersion(data []byte, correction ErrorCorrection, mode EncodingMode) (int, error) {
 	for i := range MAX_VERSION_SUPPORTED {
 		v := i + 1
 		cap := capacity[v][correction]
@@ -61,14 +52,64 @@ func FindOptimalVersion(data []byte, correction ErrorCorrection, mode EncodingMo
 		if mode == BYTE_MODE && int(cap.byteMode) < len(data) {
 			continue
 		}
-		config = capacity[v][correction]
 		return v, nil
 	}
 	maxLimit := capacity[MAX_VERSION_SUPPORTED][correction]
 	return -1, errors.New(fmt.Sprintf("\nData is too long to support.. \ncheck the limits... \nmax version supported:%d \nnumeric mode:%d \nalpha mode:%d \nbyte mode:%d", MAX_VERSION_SUPPORTED, maxLimit.numeric, maxLimit.alpha, maxLimit.byteMode))
 }
 
-func EncodeNumeric(data []byte) []byte {
+type QrCode struct {
+	mode            EncodingMode
+	errorCorrection ErrorCorrection
+	version         int
+	capacity        int
+	maxCodewords    int
+	frameSize       int
+}
+
+func (qr *QrCode) Init(data []byte, ec ErrorCorrection) error {
+	mode := findMode(data)
+
+	var v int
+	if qr.version == 0 {
+		ver, err := findBestVersion(data, ec, mode)
+		if err != nil {
+			return errors.New("Error calculating version")
+		}
+		v = ver
+	}
+
+	qr.mode = mode
+	qr.errorCorrection = ec
+	qr.version = v
+
+	loadCharCountFrameSize()
+	c := capacity[v][ec]
+
+	switch mode {
+	case NUMERIC:
+		qr.capacity = int(c.numeric)
+		qr.maxCodewords = int(c.totalCodewords)
+		qr.frameSize = int(charCountFrameSize[v].numeric)
+		break
+	case ALPHA:
+		qr.capacity = int(c.alpha)
+		qr.maxCodewords = int(c.totalCodewords)
+		qr.frameSize = int(charCountFrameSize[v].alpha)
+		break
+	case BYTE_MODE:
+		qr.capacity = int(c.byteMode)
+		qr.maxCodewords = int(c.totalCodewords)
+		qr.frameSize = int(charCountFrameSize[v].byteMode)
+		break
+	default:
+		panic("unsupported mode")
+	}
+
+	return nil
+}
+
+func (qr *QrCode) encodeNumeric(data []byte) []byte {
 	newArr := make([]byte, 0, int(len(data)*10/3))
 
 	getBitLen := func(len int) int {
@@ -101,7 +142,7 @@ func EncodeNumeric(data []byte) []byte {
 	return newArr
 }
 
-func EncodeAlpha(data []byte) []byte {
+func (qr *QrCode) encodeAlpha(data []byte) []byte {
 	newArr := make([]byte, 0, int(len(data)*11/2))
 
 	for i := 0; i < len(data); {
@@ -131,7 +172,7 @@ func EncodeAlpha(data []byte) []byte {
 	return newArr
 }
 
-func EncodeByteMode(data []byte) []byte {
+func (qr *QrCode) encodeByteMode(data []byte) []byte {
 	newArr := make([]byte, 0, int(len(data)*8))
 
 	for _, d := range data {
@@ -141,38 +182,38 @@ func EncodeByteMode(data []byte) []byte {
 	return newArr
 }
 
-func EncodeData(data []byte, version int, mode EncodingMode, ec ErrorCorrection) ([]byte, error) {
+func (qr *QrCode) EncodeData(data []byte) ([]byte, error) {
 	loadCharCountFrameSize()
 	arr := make([]byte, 0, 100) // adjust later
-	arr = append(arr, NumToBinary(int(mode), 4)...)
+	arr = append(arr, NumToBinary(int(qr.mode), 4)...)
 
-	switch mode {
+	switch qr.mode {
 	case NUMERIC:
-		frameSize := NumToBinary(len(data), int(charCountFrameSize[version].numeric))
+		frameSize := NumToBinary(len(data), int(charCountFrameSize[qr.version].numeric))
 		arr = append(arr, frameSize...)
 
-		encoded := EncodeNumeric(data)
+		encoded := qr.encodeNumeric(data)
 		arr = append(arr, encoded...)
 		break
 	case ALPHA:
-		frameSize := NumToBinary(len(data), int(charCountFrameSize[version].alpha))
+		frameSize := NumToBinary(len(data), int(charCountFrameSize[qr.version].alpha))
 		arr = append(arr, frameSize...)
 
-		encoded := EncodeAlpha(data)
+		encoded := qr.encodeAlpha(data)
 		arr = append(arr, encoded...)
 		break
 	case BYTE_MODE:
-		frameSize := NumToBinary(len(data), int(charCountFrameSize[version].byteMode))
+		frameSize := NumToBinary(len(data), int(charCountFrameSize[qr.version].byteMode))
 		arr = append(arr, frameSize...)
 
-		encoded := EncodeByteMode(data)
+		encoded := qr.encodeByteMode(data)
 		arr = append(arr, encoded...)
 		break
 	default:
 		panic("invalid mode")
 	}
 
-	wiggleRoom := int(config.totalCodewords*8) - len(arr)
+	wiggleRoom := int(qr.maxCodewords*8) - len(arr)
 	if wiggleRoom <= 4 {
 		arr = append(arr, make([]byte, wiggleRoom)...)
 	} else {

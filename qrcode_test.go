@@ -37,7 +37,7 @@ func (s *QrTestSuite) TestFindMode() {
 
 	testingFn := func(test testcase) func(*testing.T) {
 		return func(*testing.T) {
-			mode := FindMode(test.data)
+			mode := findMode(test.data)
 			s.Equal(mode, test.mode, "Mode should match")
 		}
 	}
@@ -49,7 +49,7 @@ func (s *QrTestSuite) TestFindMode() {
 	}
 }
 
-func (s *QrTestSuite) TestFindOptimalVersion() {
+func (s *QrTestSuite) TestFindBestVersion() {
 	type testcase struct {
 		name       string
 		data       []byte
@@ -67,7 +67,7 @@ func (s *QrTestSuite) TestFindOptimalVersion() {
 
 	testingFn := func(test testcase) func(*testing.T) {
 		return func(*testing.T) {
-			version, _ := FindOptimalVersion(test.data, test.correction, test.mode)
+			version, _ := findBestVersion(test.data, test.correction, test.mode)
 			s.Equal(version, test.version, "Version should match")
 		}
 	}
@@ -81,22 +81,24 @@ func (s *QrTestSuite) TestFindOptimalVersion() {
 
 func (s *QrTestSuite) TestEncodeAlpha() {
 	type testcase struct {
-		name string
-		data []byte
-		resp string
+		name   string
+		mockQr QrCode
+		data   []byte
+		resp   string
 	}
 
 	testCases := []testcase{
 		{
-			name: "hello world",
-			data: []byte{'H', 'E', 'L', 'L', 'O', ' ', 'W', 'O', 'R', 'L', 'D'},
-			resp: "0110000101101111000110100010111001011011100010011010100001101",
+			name:   "hello world",
+			mockQr: QrCode{mode: ALPHA, errorCorrection: Q, version: 1, capacity: 16, maxCodewords: 13, frameSize: 9},
+			data:   []byte{'H', 'E', 'L', 'L', 'O', ' ', 'W', 'O', 'R', 'L', 'D'},
+			resp:   "0110000101101111000110100010111001011011100010011010100001101",
 		},
 	}
 
 	testingFn := func(test testcase) func(*testing.T) {
 		return func(*testing.T) {
-			encoded := EncodeAlpha(test.data)
+			encoded := test.mockQr.encodeAlpha(test.data)
 			s.Equal(string(getReadableBinary(encoded)), test.resp, "Encoded bin should match")
 		}
 	}
@@ -110,22 +112,24 @@ func (s *QrTestSuite) TestEncodeAlpha() {
 
 func (s *QrTestSuite) TestEncodeNumeric() {
 	type testcase struct {
-		name string
-		data []byte
-		resp string
+		name   string
+		mockQr QrCode
+		data   []byte
+		resp   string
 	}
 
 	testCases := []testcase{
 		{
-			name: "hello world",
-			data: []byte{'8', '6', '7', '5', '3', '0', '9'},
-			resp: "110110001110000100101001",
+			name:   "hello world",
+			mockQr: QrCode{mode: ALPHA, errorCorrection: Q, version: 1, capacity: 16, maxCodewords: 13, frameSize: 9},
+			data:   []byte{'8', '6', '7', '5', '3', '0', '9'},
+			resp:   "110110001110000100101001",
 		},
 	}
 
 	testingFn := func(test testcase) func(*testing.T) {
 		return func(*testing.T) {
-			encoded := EncodeNumeric(test.data)
+			encoded := test.mockQr.encodeNumeric(test.data)
 			s.Equal(string(getReadableBinary(encoded)), test.resp, "Encoded bin should match")
 		}
 	}
@@ -139,22 +143,24 @@ func (s *QrTestSuite) TestEncodeNumeric() {
 
 func (s *QrTestSuite) TestEncodeByteMode() {
 	type testcase struct {
-		name string
-		data []byte
-		resp string
+		name   string
+		mockQr QrCode
+		data   []byte
+		resp   string
 	}
 
 	testCases := []testcase{
 		{
-			name: "hello world",
-			data: []byte{'H', 'e', 'l', 'l', 'o'},
-			resp: "0100100001100101011011000110110001101111",
+			name:   "hello world",
+			mockQr: QrCode{mode: ALPHA, errorCorrection: Q, version: 1, capacity: 16, maxCodewords: 13, frameSize: 9},
+			data:   []byte{'H', 'e', 'l', 'l', 'o'},
+			resp:   "0100100001100101011011000110110001101111",
 		},
 	}
 
 	testingFn := func(test testcase) func(*testing.T) {
 		return func(*testing.T) {
-			encoded := EncodeByteMode(test.data)
+			encoded := test.mockQr.encodeByteMode(test.data)
 			s.Equal(string(getReadableBinary(encoded)), test.resp, "Encoded bin should match")
 		}
 	}
@@ -169,6 +175,7 @@ func (s *QrTestSuite) TestEncodeByteMode() {
 func (s *QrTestSuite) TestEncodeData() {
 	type testcase struct {
 		name    string
+		mockQr  QrCode
 		version int
 		mode    EncodingMode
 		ec      ErrorCorrection
@@ -178,19 +185,16 @@ func (s *QrTestSuite) TestEncodeData() {
 
 	testCases := []testcase{
 		{
-			name:    "alpha_encode",
-			data:    []byte{'H', 'E', 'L', 'L', 'O', ' ', 'W', 'O', 'R', 'L', 'D'},
-			version: 1,
-			mode:    ALPHA,
-			ec:      Q,
-			resp:    "00100000010110110000101101111000110100010111001011011100010011010100001101000000111011000001000111101100",
+			name:   "alpha_encode",
+			mockQr: QrCode{mode: ALPHA, errorCorrection: Q, version: 1, capacity: 16, maxCodewords: 13, frameSize: 9},
+			data:   []byte{'H', 'E', 'L', 'L', 'O', ' ', 'W', 'O', 'R', 'L', 'D'},
+			resp:   "00100000010110110000101101111000110100010111001011011100010011010100001101000000111011000001000111101100",
 		},
 	}
 
 	testingFn := func(test testcase) func(*testing.T) {
 		return func(*testing.T) {
-			version, _ := FindOptimalVersion(test.data, test.ec, test.mode) // load config variable
-			encoded, err := EncodeData(test.data, version, test.mode, config.correction)
+			encoded, err := test.mockQr.EncodeData(test.data)
 			if err != nil {
 				s.Equal(len(encoded), 0)
 				s.EqualError(err, "invalid mode")
