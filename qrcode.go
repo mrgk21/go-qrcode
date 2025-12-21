@@ -35,7 +35,7 @@ type QrDetails struct {
 type TableData struct {
 }
 
-func FindMode(data []byte) (EncodingMode, error) {
+func FindMode(data []byte) EncodingMode {
 	mode := NUMERIC
 	for _, item := range data {
 		if mode == NUMERIC && slices.Index(numericTable, item) == -1 {
@@ -45,7 +45,7 @@ func FindMode(data []byte) (EncodingMode, error) {
 			mode = BYTE_MODE
 		}
 	}
-	return mode, nil
+	return mode
 }
 
 func FindOptimalVersion(data []byte, correction ErrorCorrection, mode EncodingMode) (int, error) {
