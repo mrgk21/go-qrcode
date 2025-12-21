@@ -83,6 +83,7 @@ func (qr *QrCode) Init(data []byte, ec ErrorCorrection) error {
 	qr.errorCorrection = ec
 	qr.version = v
 
+	seedGfTable()
 	loadCharCountFrameSize()
 	c := capacity[v][ec]
 
