@@ -1,6 +1,8 @@
 package qrcode
 
-import "slices"
+import (
+	"slices"
+)
 
 func RemoveTrailingZeros(arr []byte, isCharFormat bool) []byte {
 	var compByte uint8 = 0
@@ -39,6 +41,14 @@ func NumToBinary(num int, bitSize int) []byte {
 	newArr = append(newArr, make([]byte, cap(newArr)-len(newArr))...)
 	slices.Reverse(newArr)
 	return newArr
+}
+
+func BinToNum(num []uint8) int {
+	var val int = 0
+	for _, v := range num {
+		val = val*2 + int(v)
+	}
+	return val
 }
 
 func And()        {}

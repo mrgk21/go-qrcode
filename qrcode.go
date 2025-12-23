@@ -64,6 +64,7 @@ type QrCode struct {
 	version         int
 	capacity        int
 	maxCodewords    int
+	ecCodewords     int
 	frameSize       int
 }
 
@@ -83,24 +84,23 @@ func (qr *QrCode) Init(data []byte, ec ErrorCorrection) error {
 	qr.errorCorrection = ec
 	qr.version = v
 
-	seedGfTable()
+	SeedGfTable()
 	loadCharCountFrameSize()
 	c := capacity[v][ec]
+	qr.maxCodewords = int(c.totalCodewords)
+	qr.ecCodewords = int(c.ecCodewords)
 
 	switch mode {
 	case NUMERIC:
 		qr.capacity = int(c.numeric)
-		qr.maxCodewords = int(c.totalCodewords)
 		qr.frameSize = int(charCountFrameSize[v].numeric)
 		break
 	case ALPHA:
 		qr.capacity = int(c.alpha)
-		qr.maxCodewords = int(c.totalCodewords)
 		qr.frameSize = int(charCountFrameSize[v].alpha)
 		break
 	case BYTE_MODE:
 		qr.capacity = int(c.byteMode)
-		qr.maxCodewords = int(c.totalCodewords)
 		qr.frameSize = int(charCountFrameSize[v].byteMode)
 		break
 	default:
@@ -185,7 +185,7 @@ func (qr *QrCode) encodeByteMode(data []byte) []byte {
 
 func (qr *QrCode) EncodeData(data []byte) ([]byte, error) {
 	loadCharCountFrameSize()
-	arr := make([]byte, 0, 100) // adjust later
+	arr := make([]byte, 0, qr.maxCodewords*8)
 	arr = append(arr, NumToBinary(int(qr.mode), 4)...)
 
 	switch qr.mode {
@@ -195,21 +195,18 @@ func (qr *QrCode) EncodeData(data []byte) ([]byte, error) {
 
 		encoded := qr.encodeNumeric(data)
 		arr = append(arr, encoded...)
-		break
 	case ALPHA:
 		frameSize := NumToBinary(len(data), int(charCountFrameSize[qr.version].alpha))
 		arr = append(arr, frameSize...)
 
 		encoded := qr.encodeAlpha(data)
 		arr = append(arr, encoded...)
-		break
 	case BYTE_MODE:
 		frameSize := NumToBinary(len(data), int(charCountFrameSize[qr.version].byteMode))
 		arr = append(arr, frameSize...)
 
 		encoded := qr.encodeByteMode(data)
 		arr = append(arr, encoded...)
-		break
 	default:
 		panic("invalid mode")
 	}
@@ -236,5 +233,21 @@ func (qr *QrCode) EncodeData(data []byte) ([]byte, error) {
 			}
 		}
 	}
+
+	// msg, err := getMsgPoly(arr)
+	// if err != nil {
+	// 	return []byte{}, err
+	// }
+
+	// gen, err := getNextGenPoly(uint8(qr.ecCodewords))
+	// if err != nil {
+	// 	return []byte{}, err
+	// }
+
+	// op, err := dividePoly(msg, gen)
+	// if err != nil {
+	// 	return []byte{}, err
+	// }
+
 	return arr, nil
 }
